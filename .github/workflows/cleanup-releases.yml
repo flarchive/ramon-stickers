@@ -1,0 +1,70 @@
+name: Cleanup Old Releases
+
+on:
+  workflow_dispatch:
+
+# CLAUDE.md §35.13/C1 — default-deny token scope at the workflow level.
+permissions: {}
+
+# CLAUDE.md §35.13/I4 — never run two cleanups in parallel; they mutate the same
+# release set and could race.
+concurrency:
+  group: cleanup-releases
+  cancel-in-progress: false
+
+jobs:
+  cleanup:
+    name: Keep only the last 5 releases
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Harden runner
+        uses: step-security/harden-runner@a5ad31d6a139d249332a2605b85202e8c0b78450 # v2.19.1
+        with:
+          egress-policy: audit
+
+      - name: Delete old releases
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const KEEP = 5;
+
+            const releases = await github.paginate(
+              github.rest.repos.listReleases,
+              { owner: context.repo.owner, repo: context.repo.repo, per_page: 100 }
+            );
+
+            // Sort by published_at descending (newest first)
+            releases.sort((a, b) => new Date(b.published_at) - new Date(a.published_at));
+
+            const toDelete = releases.slice(KEEP);
+
+            console.log(`Total releases: ${releases.length}`);
+            console.log(`Keeping the ${KEEP} most recent, deleting ${toDelete.length}`);
+
+            for (const release of toDelete) {
+              console.log(`Deleting release: ${release.tag_name} (id: ${release.id})`);
+
+              // Delete the release
+              await github.rest.repos.deleteRelease({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                release_id: release.id,
+              });
+
+              // Delete the associated tag
+              try {
+                await github.rest.git.deleteRef({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  ref: `tags/${release.tag_name}`,
+                });
+                console.log(`  Tag ${release.tag_name} deleted`);
+              } catch (e) {
+                console.log(`  Tag ${release.tag_name} not found or already deleted`);
+              }
+            }
+
+            console.log('Cleanup complete.');
