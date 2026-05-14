@@ -1,0 +1,197 @@
+// -------------------------------------------------------
+// Sticker toolbar button — calibrate SVG to match FA solid icon visual weight
+// The sticker SVG paths have ~4px padding inside a 24px viewBox (≈83% fill).
+// FA icons fill ~90%+, so we scale up slightly to compensate.
+// -------------------------------------------------------
+
+.Button-Sticker {
+  font-size: 1.5em;  // makes the 1em SVG appear visually equal to FA icons
+
+  svg {
+    vertical-align: -0.125em;
+  }
+}
+
+// -------------------------------------------------------
+// Sticker Picker (floating panel) — minimalist style
+// -------------------------------------------------------
+
+.StickerPicker-wrapper {
+  position: fixed;
+  z-index: 1050;
+}
+
+.StickerPicker {
+  background: var(--body-bg);
+  border: 1px solid var(--control-bg-shaded, rgba(0,0,0,.10));
+  border-radius: 10px;
+  box-shadow: 0 2px 10px rgba(0,0,0,.10), 0 8px 24px rgba(0,0,0,.06);
+  width: 320px;
+  max-width: 94vw;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  animation: StickerPickerIn 0.14s ease-out both;
+
+  @keyframes StickerPickerIn {
+    from {
+      opacity: 0;
+      transform: translateY(6px) scale(0.97);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+    }
+  }
+
+  // Loading / empty states
+  &-loading,
+  &-empty {
+    padding: 28px 16px;
+    text-align: center;
+    color: var(--muted-color);
+    font-size: 13px;
+  }
+
+  // Tab bar — scrollable row, no wrapping
+  &-tabs {
+    display: flex;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    scrollbar-width: none;
+    padding: 8px 8px 0;
+    gap: 2px;
+    flex-shrink: 0;
+
+    &::-webkit-scrollbar { display: none; }
+  }
+
+  &-tab {
+    background: none;
+    border: none;
+    border-bottom: 2px solid transparent;
+    border-radius: 4px 4px 0 0;
+    color: var(--muted-color);
+    cursor: pointer;
+    font-size: 12px;
+    font-weight: 500;
+    padding: 4px 10px 6px;
+    white-space: nowrap;
+    transition: color .12s, border-color .12s;
+    flex-shrink: 0;
+
+    &:hover {
+      color: var(--text-color);
+    }
+
+    &.active {
+      border-bottom-color: var(--primary-color);
+      color: var(--primary-color);
+      font-weight: 600;
+    }
+  }
+
+  // Sticker grid
+  &-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+    padding: 8px;
+    max-height: 240px;
+    overflow-y: auto;
+
+    &::-webkit-scrollbar { width: 4px; }
+    &::-webkit-scrollbar-thumb {
+      background: var(--control-bg-shaded, rgba(0,0,0,.12));
+      border-radius: 4px;
+    }
+  }
+}
+
+// -------------------------------------------------------
+// Individual sticker items (picker)
+// -------------------------------------------------------
+
+.StickerItem {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  cursor: pointer;
+  padding: 4px;
+  // Minimalist hover: background tint only, no scale
+  transition: background .12s;
+
+  &:hover {
+    background: var(--control-bg, rgba(0,0,0,.05));
+  }
+
+  &:active {
+    background: var(--control-bg-shaded, rgba(0,0,0,.09));
+  }
+
+  img {
+    width: 56px;
+    height: 56px;
+    object-fit: contain;
+    display: block;
+    border-radius: 4px;
+  }
+
+  &--animated {
+    // width/height driven by the player div inside
+  }
+}
+
+// The div that lottie-web renders into inside the picker
+.StickerItem-player {
+  width: 56px;
+  height: 56px;
+  display: block;
+  overflow: hidden;
+  border-radius: 4px;
+
+  // lottie-web creates a <canvas> inside this div
+  canvas {
+    width: 100% !important;
+    height: 100% !important;
+    display: block;
+  }
+}
+
+// -------------------------------------------------------
+// Stickers rendered inside posts via TextFormatter
+// -------------------------------------------------------
+
+span.Sticker {
+  display: inline-block;
+  vertical-align: middle;
+
+  img.sticker {
+    height: 5em;
+    max-width: 10em;
+    margin: .2em .3em;
+    vertical-align: middle;
+    object-fit: contain;
+  }
+
+  // Lottie JSON animated sticker in posts
+  &--lottie,
+  &--tgs {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 5em;
+    height: 5em;
+    margin: .2em .3em;
+    vertical-align: middle;
+    overflow: hidden;
+
+    // lottie-web creates a <canvas> directly inside this span
+    canvas {
+      width: 100% !important;
+      height: 100% !important;
+      display: block;
+    }
+  }
+}
