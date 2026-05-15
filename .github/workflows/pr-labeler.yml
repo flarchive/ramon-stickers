@@ -1,0 +1,28 @@
+name: PR Labeler
+
+on:
+  pull_request:
+    types: [opened, reopened, synchronize]
+
+# CLAUDE.md §35.13/C1 — default-deny token scope at the workflow level.
+permissions: {}
+
+jobs:
+  label_pr:
+    name: Apply labels to the PR
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+    steps:
+      - name: Harden runner
+        uses: step-security/harden-runner@a5ad31d6a139d249332a2605b85202e8c0b78450 # v2.19.1
+        with:
+          egress-policy: audit
+
+      - name: Apply label based on branch
+        uses: TimonVS/pr-labeler-action@f9c084306ce8b3f488a8f3ee1ccedc6da131d1af # v5.0.0
+        with:
+          configuration-path: .github/pr-labeler.yml
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

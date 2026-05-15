@@ -1,0 +1,228 @@
+name: Release Workflow
+
+on:
+  # Fires when a PR carrying the "release" label is MERGED into main.
+  # The bump type comes from the PR labels:
+  #   - label "BC"     => minor (e.g. 2.0.11 -> 2.1.0)
+  #   - any other      => patch (e.g. 2.0.11 -> 2.0.12)
+  # The version is derived from the LATEST git tag — composer.json no longer
+  # carries a "version" field (single source of truth = VCS tags).
+  pull_request:
+    types: [closed]
+    branches:
+      - main
+  # Manual escape hatch: publish a release choosing the bump explicitly
+  # (includes "major", which the automatic flow never does).
+  workflow_dispatch:
+    inputs:
+      bump:
+        description: 'Version increment type'
+        required: true
+        type: choice
+        default: patch
+        options:
+          - patch
+          - minor
+          - major
+
+# CLAUDE.md §35.13/C1 — default-deny token scope at the workflow level.
+permissions: {}
+
+# CLAUDE.md §35.13/I4 — serialize releases; never cancel a release mid-flight
+# (a half-published tag would need manual cleanup).
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  build_and_release:
+    name: Build and Auto-Publish
+    runs-on: ubuntu-latest
+    # Runs only on manual dispatch OR a merged PR carrying the "release" label.
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.pull_request.merged == true &&
+       contains(github.event.pull_request.labels.*.name, 'release'))
+    permissions:
+      contents: write           # create releases + tags
+      pull-requests: read       # release-drafter needs to read merged PRs
+      id-token: write           # CLAUDE.md §35.13/R4 — SLSA attestation
+      attestations: write       # CLAUDE.md §35.13/R4 — SLSA attestation
+    steps:
+      - name: Harden runner
+        uses: step-security/harden-runner@a5ad31d6a139d249332a2605b85202e8c0b78450 # v2.19.1
+        with:
+          egress-policy: audit
+
+      - name: Checkout code
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          # fetch-depth: 0 brings the full history AND all tags — required to
+          # compute the next version from the latest tag.
+          fetch-depth: 0
+          # Merged PR: point at the real merge commit on main.
+          # Manual dispatch: HEAD of the chosen branch (default main).
+          ref: ${{ github.event.pull_request.merge_commit_sha || github.sha }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@39370e3970a6d050c480ffad4ff0ed4d3fdee5af # v4.1.0
+        with:
+          node-version: 20
+          cache: 'npm'
+          cache-dependency-path: js/package-lock.json
+
+      - name: Install JS dependencies
+        run: |
+          cd js
+          npm ci
+
+      - name: Build JS (Flarum)
+        run: |
+          cd js
+          npm run build
+
+      - name: Compute next version
+        id: version
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          DISPATCH_BUMP: ${{ github.event.inputs.bump }}
+          PR_LABELS: ${{ github.event_name == 'pull_request' && join(github.event.pull_request.labels.*.name, ',') || '' }}
+        run: |
+          set -euo pipefail
+
+          # 1. Determine the bump type.
+          if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
+            BUMP="$DISPATCH_BUMP"
+          else
+            # Label "BC" on the PR => minor; any other type label => patch.
+            case ",$PR_LABELS," in
+              *,BC,*) BUMP="minor" ;;
+              *)      BUMP="patch" ;;
+            esac
+          fi
+          echo "Bump: $BUMP (PR labels: ${PR_LABELS:-<manual dispatch>})"
+
+          # 2. Latest version tag (semver). The 'v[0-9]*' glob + version sort
+          #    pick the highest tag; %%-* drops any legacy pre-release suffix
+          #    (e.g. -beta), since we now publish stable releases.
+          LATEST="$(git tag --list 'v[0-9]*' --sort=-v:refname | head -n1 || true)"
+          LATEST="${LATEST:-v0.0.0}"
+          CORE="${LATEST#v}"
+          CORE="${CORE%%-*}"
+          IFS='.' read -r MAJOR MINOR PATCH <<< "$CORE"
+          MAJOR="${MAJOR:-0}"; MINOR="${MINOR:-0}"; PATCH="${PATCH:-0}"
+          echo "Latest tag: $LATEST -> base ${MAJOR}.${MINOR}.${PATCH}"
+
+          # 3. Increment according to the bump.
+          case "$BUMP" in
+            major) MAJOR=$((MAJOR + 1)); MINOR=0; PATCH=0 ;;
+            minor) MINOR=$((MINOR + 1)); PATCH=0 ;;
+            patch) PATCH=$((PATCH + 1)) ;;
+            *) echo "::error::Invalid bump: '$BUMP'"; exit 1 ;;
+          esac
+
+          VERSION="${MAJOR}.${MINOR}.${PATCH}"
+          TAG="v${VERSION}"
+
+          # 4. Idempotency guard — never republish an existing tag.
+          if git rev-parse "refs/tags/${TAG}" >/dev/null 2>&1; then
+            echo "::error::Tag ${TAG} already exists — nothing to publish."
+            exit 1
+          fi
+
+          echo "New version: ${VERSION} (tag ${TAG})"
+          {
+            echo "version=${VERSION}"
+            echo "tag=${TAG}"
+            echo "bump=${BUMP}"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Publish GitHub Release
+        id: create_release
+        uses: release-drafter/release-drafter@6a93d829887aa2e0748befe2e808c66c0ec6e4c7 # v6
+        with:
+          publish: true
+          # Version computed above — overrides the version-resolver in
+          # .github/release-drafter.yml (kept there only as documentation).
+          version: ${{ steps.version.outputs.version }}
+          tag: ${{ steps.version.outputs.tag }}
+          name: ${{ steps.version.outputs.tag }}
+          # Point the tag/release at the real merge commit (not the simulated
+          # merge ref of the pull_request event).
+          commitish: ${{ github.event.pull_request.merge_commit_sha || github.sha }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Attest build provenance (SLSA)
+        # CLAUDE.md §35.13/R4 — signed provenance for release artifacts.
+        if: steps.create_release.outcome == 'success'
+        uses: actions/attest-build-provenance@c074443f1aee8d4aeeae555aebba3282517141b2 # v2.2.3
+        with:
+          subject-path: |
+            composer.json
+            js/dist/forum.js
+            js/dist/admin.js
+
+      - name: Post release to Flarum forum
+        if: |
+          steps.create_release.outcome == 'success'
+          && steps.create_release.outputs.html_url
+          && vars.FLARUM_DISCUSSION_ID != ''
+        env:
+          FLARUM_API_KEY: ${{ secrets.FLARUM_API_KEY }}
+          FLARUM_DISCUSSION_ID: ${{ vars.FLARUM_DISCUSSION_ID }}
+          RELEASE_TAG: ${{ steps.create_release.outputs.tag_name }}
+          RELEASE_BODY: ${{ steps.create_release.outputs.body }}
+          RELEASE_URL: ${{ steps.create_release.outputs.html_url }}
+        run: |
+          # Extract version from tag (remove leading 'v' if present)
+          VERSION="${RELEASE_TAG#v}"
+
+          PAYLOAD=$(jq -n \
+            --arg tag "$RELEASE_TAG" \
+            --arg body "$RELEASE_BODY" \
+            --arg url "$RELEASE_URL" \
+            --arg version "$VERSION" \
+            --arg discussion_id "$FLARUM_DISCUSSION_ID" \
+            '{
+              "data": {
+                "type": "posts",
+                "attributes": {
+                  "content": ("## " + $tag + "\n\n" + $body + "\n\n**Installation:**\n```\ncomposer require ramon/stickers:" + $version + "\n```\n\n[See release on GitHub](" + $url + ")")
+                },
+                "relationships": {
+                  "discussion": {
+                    "data": {
+                      "type": "discussions",
+                      "id": $discussion_id
+                    }
+                  }
+                }
+              }
+            }')
+
+          HTTP_STATUS=$(curl -s -o /tmp/flarum_response.json -w "%{http_code}" \
+            -X POST "https://ramonguilherme.com.br/api/posts" \
+            -H "Authorization: Token ${FLARUM_API_KEY}" \
+            -H "Content-Type: application/json" \
+            -d "$PAYLOAD")
+
+          echo "HTTP Status: $HTTP_STATUS"
+
+          if [ "$HTTP_STATUS" -ge 200 ] && [ "$HTTP_STATUS" -lt 300 ]; then
+            echo "Comment published successfully on Flarum."
+            echo "Post ID: $(jq -r '.data.id // empty' /tmp/flarum_response.json)"
+          else
+            echo "Failed to publish comment on Flarum (HTTP $HTTP_STATUS)"
+            echo "Response body:"
+            jq '.' /tmp/flarum_response.json
+            exit 1
+          fi
+
+      - name: Status log
+        if: always()
+        run: |
+          echo "Bump:        ${{ steps.version.outputs.bump }}"
+          echo "New version: ${{ steps.version.outputs.version }}"
+          echo "Tag:         ${{ steps.version.outputs.tag }}"
+          echo "Release URL: ${{ steps.create_release.outputs.html_url }}"

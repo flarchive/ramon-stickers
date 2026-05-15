@@ -1,0 +1,23 @@
+{
+  "name": "@ramon/stickers",
+  "description": "Sticker manager for Flarum with animated TGS support.",
+  "license": "MIT",
+  "version": "2.0.0",
+  "dependencies": {
+    "file-saver": "2.0.5",
+    "lottie-web": "^5.12.2",
+    "node-emoji": "^2.2.0"
+  },
+  "devDependencies": {
+    "flarum-webpack-config": "^3.0.4",
+    "prettier": "^3.8.3",
+    "webpack": "^5.106.2",
+    "webpack-cli": "^7.0.2"
+  },
+  "scripts": {
+    "dev": "webpack --mode development --watch",
+    "build": "webpack --mode production",
+    "format": "prettier --write src",
+    "format-check": "prettier --check src"
+  }
+}
