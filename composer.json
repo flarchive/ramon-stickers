@@ -1,0 +1,39 @@
+{
+    "name": "ramon/stickers",
+    "description": "Sticker manager for Flarum with native support for animated TGS and Lottie stickers.",
+    "keywords": [
+        "flarum",
+        "stickers",
+        "tgs",
+        "lottie",
+        "animated"
+    ],
+    "type": "flarum-extension",
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "Ramon Guilherme",
+            "email": "ramon@ramonguilherme.com.br",
+            "homepage": "https://ramonguilherme.com.br"
+        }
+    ],
+    "require": {
+        "flarum/core": "^2.0"
+    },
+    "autoload": {
+        "psr-4": {
+            "Ramon\\Stickers\\": "src/"
+        }
+    },
+    "extra": {
+        "flarum-extension": {
+            "title": "Stickers",
+            "category": "feature",
+            "icon": {
+                "image": "icon.svg",
+                "backgroundColor": "#fff",
+                "color": "#fff"
+            }
+        }
+    }
+}
