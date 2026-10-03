@@ -2,13 +2,24 @@
 
 > **Read-only archive of released versions of ramon/stickers.** Not for installation: use [Packagist](https://packagist.org/packages/ramon/stickers) or the [upstream repository](https://github.com/ram0ng1/stickers).
 
-**0** versions archived · Latest: [`v2.0.16`](https://github.com/flarchive/ramon-stickers/tree/archive/v2.0.16) · License: `MIT` · Flarum: `^2.0`
+**13** versions archived · Latest: [`v2.0.16`](https://github.com/flarchive/ramon-stickers/tree/archive/v2.0.16) · License: `MIT` · Flarum: `^2.0`
 
 ## Archived Versions
 
 | Version | Released | Flarum | Source |
 |---|---|---|---|
-| — | — | — | — |
+| `2.0.10` | 2026-05-13 | `^1.8.10 || ^2.0` | [Browse](https://github.com/flarchive/ramon-stickers/tree/archive/v2.0.10) |
+| `2.0.11` | 2026-05-13 | `^1.8.10 || ^2.0` | [Browse](https://github.com/flarchive/ramon-stickers/tree/archive/v2.0.11) |
+| `2.0.5` | 2026-04-19 | `^1.8.10 || ^2.0` | [Browse](https://github.com/flarchive/ramon-stickers/tree/archive/v2.0.5) |
+| `2.0.5-beta` | 2026-04-14 | `^2.0.0` | [Browse](https://github.com/flarchive/ramon-stickers/tree/archive/v2.0.5-beta) |
+| `2.0.6` | 2026-05-13 | `^1.8.10 || ^2.0` | [Browse](https://github.com/flarchive/ramon-stickers/tree/archive/v2.0.6) |
+| `2.0.7` | 2026-05-13 | `^1.8.10 || ^2.0` | [Browse](https://github.com/flarchive/ramon-stickers/tree/archive/v2.0.7) |
+| `2.0.8` | 2026-05-13 | `^1.8.10 || ^2.0` | [Browse](https://github.com/flarchive/ramon-stickers/tree/archive/v2.0.8) |
+| `2.0.9` | 2026-05-13 | `^1.8.10 || ^2.0` | [Browse](https://github.com/flarchive/ramon-stickers/tree/archive/v2.0.9) |
+| `v2.0.12` | 2026-05-14 | `^1.8.10 || ^2.0` | [Browse](https://github.com/flarchive/ramon-stickers/tree/archive/v2.0.12) |
+| `v2.0.13` | 2026-05-15 | `^1.8.10 || ^2.0` | [Browse](https://github.com/flarchive/ramon-stickers/tree/archive/v2.0.13) |
+
+[View all 13 versions](https://github.com/flarchive/ramon-stickers/tags)
 
 Catalog entry: [packages/ramon-stickers.json](https://github.com/flarchive/archive-index/blob/main/packages/ramon-stickers.json)
 
